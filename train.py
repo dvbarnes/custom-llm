@@ -1,3 +1,4 @@
+# based on the readings from https://github.com/rasbt/LLMs-from-scratch/blob/main/ch05/01_main-chapter-code/ch05.ipynb
 import torch
 
 from gpt import GPTModel, create_dataloader_v1, generate_text_simple
@@ -18,8 +19,6 @@ model.eval();  # Disable dropout during inference
 
 
 import tiktoken
-# Alternatively:
-# from llms_from_scratch.ch04 import generate_text_simple
 
 def text_to_token_ids(text, tokenizer):
     encoded = tokenizer.encode(text, allowed_special={'<|endoftext|>'})
@@ -79,24 +78,6 @@ def calc_loss_batch(input_batch, target_batch, model, device):
     input_batch, target_batch = input_batch.to(device), target_batch.to(device)
     logits = model(input_batch)
     loss = torch.nn.functional.cross_entropy(logits.flatten(0, 1), target_batch.flatten())
-    print("===")
-    print("logits:", logits.flatten(0,1).shape)
-    print("input_batch.shape:", input_batch.flatten(0,1).shape)
-    print("target_batch.shape:", target_batch.flatten(0,1).shape)
-    max = torch.argmax(logits.flatten(0,1), dim=1)
-    print("arg_max:", max)
-    tokenizer = tiktoken.get_encoding("gpt2")
-    ids = tokenizer.decode(target_batch.flatten(0,1).tolist())
-    print("input_batch:", input_batch.flatten(0,1))
-    
-    ids_3 = tokenizer.decode(input_batch.flatten(0,1).tolist())
-    print("input_batch_ids:", ids_3)
-    ids_2 = tokenizer.decode(max.tolist())
-    print("---")
-    print("max_ids:", ids_2)
-    print("target_batch:", target_batch.flatten(0,1))
-    print("loss:", loss)
-    print("===")
     return loss
 
 
