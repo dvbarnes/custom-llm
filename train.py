@@ -14,63 +14,6 @@ GPT_CONFIG_124M = {
     "qkv_bias": False      # Query-key-value bias
 }
 
-torch.manual_seed(123)
-model = GPTModel(GPT_CONFIG_124M)
-model.eval();  # Disable dropout during inference
-
-def text_to_token_ids(text, tokenizer):
-    encoded = tokenizer.encode(text, allowed_special={'<|endoftext|>'})
-    encoded_tensor = torch.tensor(encoded).unsqueeze(0) # add batch dimension
-    return encoded_tensor
-
-def token_ids_to_text(token_ids, tokenizer):
-    flat = token_ids.squeeze(0) # remove batch dimension
-    return tokenizer.decode(flat.tolist())
-
-start_context = "Every effort moves you"
-tokenizer = tiktoken.get_encoding("gpt2")
-
-token_ids = generate_text_simple(
-    model=model,
-    idx=text_to_token_ids(start_context, tokenizer),
-    max_new_tokens=10,
-    context_size=GPT_CONFIG_124M["context_length"]
-)
-
-print("Output text:\n", token_ids_to_text(token_ids, tokenizer))
-
-with open("the-verdict.txt", "r") as f:
-    text_data = f.read()
-
-# Train/validation ratio
-train_ratio = 0.90
-split_idx = int(train_ratio * len(text_data))
-train_data = text_data[:split_idx]
-val_data = text_data[split_idx:]
-
-
-torch.manual_seed(123)
-
-train_loader = create_dataloader_v1(
-    train_data,
-    batch_size=3,
-    max_length=GPT_CONFIG_124M["context_length"],
-    stride=GPT_CONFIG_124M["context_length"],
-    drop_last=True,
-    shuffle=True,
-    num_workers=0
-)
-
-val_loader = create_dataloader_v1(
-    val_data,
-    batch_size=3,
-    max_length=GPT_CONFIG_124M["context_length"],
-    stride=GPT_CONFIG_124M["context_length"],
-    drop_last=False,
-    shuffle=False,
-    num_workers=0
-)
-
 
 def calc_loss_batch(input_batch, target_batch, model, device):
     input_batch, target_batch = input_batch.to(device), target_batch.to(device)
@@ -97,34 +40,6 @@ def calc_loss_loader(data_loader, model, device, num_batches=None):
             break
     return total_loss / num_batches
 
-
-if torch.cuda.is_available():
-    device = torch.device("cuda")
-elif torch.backends.mps.is_available():
-    # Use PyTorch 2.9 or newer for stable mps results
-    major, minor = map(int, torch.__version__.split(".")[:2])
-    if (major, minor) >= (2, 9):
-        device = torch.device("mps")
-    else:
-        device = torch.device("cpu")
-else:
-    device = torch.device("cpu")
-
-
-print(f"Using {device} device.")
-
-
-model.to(device) # no assignment model = model.to(device) necessary for nn.Module classes
-
-
-torch.manual_seed(123) # For reproducibility due to the shuffling in the data loader
-
-with torch.no_grad(): # Disable gradient tracking for efficiency because we are not training, yet
-    train_loss = calc_loss_loader(train_loader, model, device)
-    val_loss = calc_loss_loader(val_loader, model, device)
-
-print("Training loss:", train_loss)
-print("Validation loss:", val_loss)
 
 
 def train_model_simple(model, train_loader, val_loader, optimizer, device, num_epochs,
@@ -185,37 +100,121 @@ def generate_and_print_sample(model, tokenizer, device, start_context):
     print(decoded_text.replace("\n", " "))  # Compact print format
     model.train()
     
-    
+def text_to_token_ids(text, tokenizer):
+    encoded = tokenizer.encode(text, allowed_special={'<|endoftext|>'})
+    encoded_tensor = torch.tensor(encoded).unsqueeze(0) # add batch dimension
+    return encoded_tensor
 
-torch.manual_seed(123)
-model = GPTModel(GPT_CONFIG_124M)
-model.to(device)
-optimizer = torch.optim.AdamW(model.parameters(), lr=0.0004, weight_decay=0.1)
-
-num_epochs = 10
-train_losses, val_losses, tokens_seen = train_model_simple(
-    model, train_loader, val_loader, optimizer, device,
-    num_epochs=num_epochs, eval_freq=5, eval_iter=5,
-    start_context="Every effort moves you", tokenizer=tokenizer
-)
+def token_ids_to_text(token_ids, tokenizer):
+    flat = token_ids.squeeze(0) # remove batch dimension
+    return tokenizer.decode(flat.tolist())
 
 
-inference_device = torch.device("cpu")
+if __name__ == "main":
+        
+    torch.manual_seed(123)
+    model = GPTModel(GPT_CONFIG_124M)
+    model.eval();  # Disable dropout during inference
 
-model.to(inference_device)
-model.eval()
+    start_context = "Every effort moves you"
+    tokenizer = tiktoken.get_encoding("gpt2")
 
-tokenizer = tiktoken.get_encoding("gpt2")
+    token_ids = generate_text_simple(
+        model=model,
+        idx=text_to_token_ids(start_context, tokenizer),
+        max_new_tokens=10,
+        context_size=GPT_CONFIG_124M["context_length"]
+    )
 
-token_ids = generate_text_simple(
-    model=model,
-    idx=text_to_token_ids("Every effort moves you", tokenizer).to(inference_device),
-    max_new_tokens=10,
-    context_size=GPT_CONFIG_124M["context_length"]
-)
 
-print("Output text:\n", token_ids_to_text(token_ids, tokenizer))
+    with open("the-verdict.txt", "r") as f:
+        text_data = f.read()
 
-from pathlib import Path
-Path("output").mkdir(parents=True, exist_ok=True)
-torch.save(model.state_dict(), 'output//model.pth')
+    # Train/validation ratio
+    train_ratio = 0.90
+    split_idx = int(train_ratio * len(text_data))
+    train_data = text_data[:split_idx]
+    val_data = text_data[split_idx:]
+
+
+    torch.manual_seed(123)
+
+    train_loader = create_dataloader_v1(
+        train_data,
+        batch_size=3,
+        max_length=GPT_CONFIG_124M["context_length"],
+        stride=GPT_CONFIG_124M["context_length"],
+        drop_last=True,
+        shuffle=True,
+        num_workers=0
+    )
+
+    val_loader = create_dataloader_v1(
+        val_data,
+        batch_size=3,
+        max_length=GPT_CONFIG_124M["context_length"],
+        stride=GPT_CONFIG_124M["context_length"],
+        drop_last=False,
+        shuffle=False,
+        num_workers=0
+    )
+
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+    elif torch.backends.mps.is_available():
+        # Use PyTorch 2.9 or newer for stable mps results
+        major, minor = map(int, torch.__version__.split(".")[:2])
+        if (major, minor) >= (2, 9):
+            device = torch.device("mps")
+        else:
+            device = torch.device("cpu")
+    else:
+        device = torch.device("cpu")
+
+
+    print(f"Using {device} device.")
+
+
+    model.to(device) # no assignment model = model.to(device) necessary for nn.Module classes
+
+
+    torch.manual_seed(123) # For reproducibility due to the shuffling in the data loader
+
+    with torch.no_grad(): # Disable gradient tracking for efficiency because we are not training, yet
+        train_loss = calc_loss_loader(train_loader, model, device)
+        val_loss = calc_loss_loader(val_loader, model, device)
+
+    print("Training loss:", train_loss)
+    print("Validation loss:", val_loss)
+    torch.manual_seed(123)
+    model = GPTModel(GPT_CONFIG_124M)
+    model.to(device)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=0.0004, weight_decay=0.1)
+
+    num_epochs = 10
+    train_losses, val_losses, tokens_seen = train_model_simple(
+        model, train_loader, val_loader, optimizer, device,
+        num_epochs=num_epochs, eval_freq=5, eval_iter=5,
+        start_context="Every effort moves you", tokenizer=tokenizer
+    )
+
+
+    inference_device = torch.device("cpu")
+
+    model.to(inference_device)
+    model.eval()
+
+    tokenizer = tiktoken.get_encoding("gpt2")
+
+    token_ids = generate_text_simple(
+        model=model,
+        idx=text_to_token_ids("Every effort moves you", tokenizer).to(inference_device),
+        max_new_tokens=10,
+        context_size=GPT_CONFIG_124M["context_length"]
+    )
+
+    print("Output text:\n", token_ids_to_text(token_ids, tokenizer))
+
+    from pathlib import Path
+    Path("output").mkdir(parents=True, exist_ok=True)
+    torch.save(model.state_dict(), 'output//model.pth')
