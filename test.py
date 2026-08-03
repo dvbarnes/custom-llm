@@ -17,7 +17,7 @@ tokenizer = tiktoken.get_encoding("gpt2")
 
 token_ids = generate_text_simple(
     model=model,
-    idx=text_to_token_ids("Every effort moves you", tokenizer).to(inference_device),
+    idx=text_to_token_ids("It's the last he painted", tokenizer).to(inference_device),
     max_new_tokens=10,
     context_size=GPT_CONFIG_124M["context_length"]
 )

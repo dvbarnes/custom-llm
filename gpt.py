@@ -45,9 +45,6 @@ def create_dataloader_v1(txt, batch_size=4, max_length=256,
     return dataloader
 
 
-#####################################
-# Chapter 3
-#####################################
 class MultiHeadAttention(nn.Module):
     def __init__(self, d_in, d_out, context_length, dropout, num_heads, qkv_bias=False):
         super().__init__()
